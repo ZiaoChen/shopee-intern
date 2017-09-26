@@ -370,7 +370,6 @@ def parse_sku_details_raw(details, variations, descriptions, raw_writer):
                     sku_dict["v%s_quantity_sold" % str(i + 1)] = sku_variation_list[i]["SellingStatus"]["QuantitySold"]
         raw_writer.writerow(sku_dict)
 
-
 # Read user input and initialize writer
 store_name, country_code, pages_to_crawl = get_user_input()
 raw_writer = get_csv_writer("%s_raw.csv" % store_name, raw_field_names)
