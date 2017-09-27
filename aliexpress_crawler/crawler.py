@@ -4,7 +4,9 @@ import time
 import signal
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver import ChromeOptions
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 # Config
 shopee_field_names = [
@@ -117,7 +119,13 @@ no_of_images = 9
 base_url = 'https://%s.aliexpress.com/store/all-wholesale-products/%s.html?spm=2114.12010608.0.0.5c74898bWMbaEw'
 options = ChromeOptions()
 options.add_argument('--disable-popup-blocking')
-options.add_experimental_option( "prefs",{'profile.managed_default_content_settings.images': 2})
+options.add_experimental_option("prefs", {'profile.managed_default_content_settings.images': 2,
+                                          'profile.managed_default_content_settings.javascript': 2})
+
+options_with_js = ChromeOptions()
+options_with_js.add_argument('--disable-popup-blocking')
+options_with_js.add_experimental_option("prefs", {'profile.managed_default_content_settings.images': 2})
+
 
 def login(browser):
     """
@@ -146,16 +154,20 @@ def get_user_input():
     store_name = raw_input("Please input the store name: ")
     store_id = raw_input("Please input the store id: ")
     no_items = int(input("Please input the number of items to crawl: "))
+    with_js = int(input("Please choose to crawl stock and shipping fee (1 for yes, 0 for no): "))
+    while with_js != 1 and with_js != 0:
+        with_js = int(input("Please only reply 1 or 0: "))
 
-    return (store_name, store_id, no_items)
+    return (store_name, store_id, no_items, with_js)
 
 
-def get_item_details(item, browser):
+def get_item_details(item, browser, with_js):
     """
     Fetch item details
     :param item:
     :return:
     """
+    start = time.time()
 
     item_url = item.find_element_by_class_name("pic-rind").get_attribute('href')
     item_dict_raw = {}
@@ -169,7 +181,8 @@ def get_item_details(item, browser):
     if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
         login(browser)
     item_dict_raw["ps_url"] = item_url
-    item_dict_raw["ps_product_name"] = browser.find_element_by_class_name("product-name").text
+    item_dict_raw["ps_product_name"] = WebDriverWait(browser, 5).until(
+        EC.presence_of_element_located((By.CLASS_NAME, 'product-name'))).text
     item_dict_raw["ps_original_price"] = float(browser.find_element_by_id("j-sku-price").text.split("-")[0])
 
     # Some items may not have discount price
@@ -179,15 +192,17 @@ def get_item_details(item, browser):
         pass
 
     item_dict_raw["ps_shipping_fee"] = browser.find_element_by_class_name("logistics-cost").text
-    # print browser.find_element_by_class_name("shipping-days").text
-    item_dict_raw["ps_days_to_ship"] = int(browser.find_element_by_class_name("shipping-days").text.split("-")[0])
+    if with_js:
+        item_dict_raw["ps_days_to_ship"] = int(browser.find_element_by_class_name("shipping-days").text.split("-")[0])
 
+    # Item may never be bought
     try:
         item_dict_raw["ps_num_bought"] = int(browser.find_element_by_class_name("order-num").text.split(" ")[0])
     except:
         pass
 
-    item_dict_raw["ps_stock"] = int(browser.find_element_by_id("j-sell-stock-num").text.split(" ")[0])
+    if with_js:
+        item_dict_raw["ps_stock"] = int(browser.find_element_by_id("j-sell-stock-num").text.split(" ")[0])
     item_dict_raw["ps_num_of_feedback"] = int(
         browser.find_element_by_xpath("//li[@data-trigger='feedback']/a").text.replace("Feedback (", "").replace(")",
                                                                                                                  ""))
@@ -206,17 +221,18 @@ def get_item_details(item, browser):
         item_dict_raw["ps_img_%s" % str(i + 1)] = img_list[i].find_element_by_tag_name("img").get_attribute("src")
 
     print "Crawled data: %s" % str(item_dict_raw)
+    print "Takes %ss" % str(int(time.time() - start))
     # browser.service.process.send_signal(signal.SIGTERM)
     # browser.quit()
     return item_dict_raw
 
 
 # Get user defined parameter
-store_name, store_id, no_items = get_user_input()
+store_name, store_id, no_items, with_js = get_user_input()
 pages_to_crawl = int(no_items / 50) + 1
 
 # Start the browser
-browser = webdriver.Chrome("chromedriver", chrome_options=options)
+browser = webdriver.Chrome("chromedriver", chrome_options=options_with_js)
 # browser = webdriver.PhantomJS()
 browser.get(base_url % (store_name, store_id))
 
@@ -241,14 +257,14 @@ while True:
     time.sleep(1)
     rating_list = browser.find_elements_by_xpath("//dd[@class='dsr-above']/a/b")
     if rating_list:
-        seller_item_rating = rating_list[0].text
-        seller_comm_rating = rating_list[1].text
-        seller_speed_rating = rating_list[2].text
+        rating_list[0] = rating_list[0].text
+        rating_list[1] = rating_list[1].text
+        rating_list[2] = rating_list[2].text
         break
-    elif "block" in browser.find_element_by_xpath("//div[@class='store-dsr-data']/dd").get_attribute("style"):
-        seller_item_rating = ""
-        seller_comm_rating = ""
-        seller_speed_rating = ""
+    elif "block" in browser.find_element_by_xpath("//div[@class='store-dsr-data']/p").get_attribute("style"):
+        rating_list[0] = ""
+        rating_list[1] = ""
+        rating_list[2] = ""
         break
     else:
         print "Not hover yet. Waiting..."
@@ -258,15 +274,23 @@ print "Ratings obtained"
 # Start to get data
 raw_dataframe = pd.DataFrame([])
 shopee_dataframe = pd.DataFrame([])
-item_browser = webdriver.Chrome("chromedriver", chrome_options=options)
+if with_js:
+    item_browser = webdriver.Chrome("chromedriver", chrome_options=options_with_js)
+else:
+    item_browser = webdriver.Chrome("chromedriver", chrome_options=options)
+
+counter = 0
 for page in range(1, min(max_page, pages_to_crawl) + 1):
     item_list = browser.find_elements_by_xpath("//li[@class='item']")
     for item in item_list:
-        item_details = get_item_details(item, item_browser)
+        if counter == no_items:
+            break
+
+        item_details = get_item_details(item, item_browser, with_js)
         item_details["ps_store_name"] = seller_name
-        item_details["ps_store_item_rating"] = seller_item_rating
-        item_details["ps_store_communication_rating"] = seller_comm_rating
-        item_details["ps_store_speed_rating"] = seller_speed_rating
+        item_details["ps_store_item_rating"] = rating_list[0]
+        item_details["ps_store_communication_rating"] = rating_list[1]
+        item_details["ps_store_speed_rating"] = rating_list[2]
 
         item_details_raw = {}
         for key in raw_field_names:
@@ -285,9 +309,8 @@ for page in range(1, min(max_page, pages_to_crawl) + 1):
         # Append each item to the whole dataframe
         raw_dataframe = pd.concat([raw_dataframe, pd.DataFrame.from_dict([item_details_raw])])
         shopee_dataframe = pd.concat([shopee_dataframe, pd.DataFrame.from_dict([item_details_shopee])])
-        no_items = no_items - 1
-        if no_items == 0:
-            break
+
+        counter = counter + 1
 
     # Go to next page
     if page < min(max_page, pages_to_crawl):
@@ -303,6 +326,7 @@ shopee_writer = pd.ExcelWriter("%s_shopee_format.xlsx" % seller_name)
 shopee_dataframe = shopee_dataframe[shopee_field_names]
 shopee_dataframe.to_excel(shopee_writer, "Sheet1", index=False)
 shopee_writer.save()
+
 item_browser.service.process.send_signal(signal.SIGTERM)
 item_browser.quit()
 browser.service.process.send_signal(signal.SIGTERM)
