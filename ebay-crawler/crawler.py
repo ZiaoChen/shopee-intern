@@ -233,7 +233,6 @@ def filter_sku_id(response):
 
     sku_id_list = []
     sku_list = response["searchResult"]["item"]
-    print sku_list
     for sku in sku_list:
         sku_id_list.append(sku["itemId"])
     return sku_id_list
@@ -305,8 +304,9 @@ def parse_sku_details_shopee(details, variations, descriptions):
                     else:
                         sku_dict["ps_variation %s ps_variation_name" % str(i + 1)] = \
                             str(sku_variation_list[i]["VariationSpecifics"]["NameValueList"]['Value'])
-                    sku_dict["ps_variation %s ps_variation_price" % str(i + 1)] = float(sku_variation_list[i]["StartPrice"][
-                        'value'])
+                    sku_dict["ps_variation %s ps_variation_price" % str(i + 1)] = float(
+                        sku_variation_list[i]["StartPrice"][
+                            'value'])
 
         # Fill in the values for the keys that not in the api
         sku_filtered = {}
@@ -370,60 +370,83 @@ def parse_sku_details_raw(details, variations, descriptions, raw_writer):
                     sku_dict["v%s_quantity_sold" % str(i + 1)] = sku_variation_list[i]["SellingStatus"]["QuantitySold"]
         raw_writer.writerow(sku_dict)
 
-# Read user input and initialize writer
-store_name, country_code, pages_to_crawl = get_user_input()
-raw_writer = get_csv_writer("%s_raw.csv" % store_name, raw_field_names)
-raw_writer.writeheader()
-shopee_dataframe = pd.DataFrame([])
 
-# Initialize API connection
-api_finding = Finding(appid=ebay_app_id, config_file=None, siteid=country_code)
-api_shopping = Shopping(appid=ebay_app_id, config_file=None, siteid=country_code)
+def main():
+    """
+    Main function
+    :return:
+    """
 
-# Find Item IDs in the store
-sku_id_list = get_sku_id_list(store_name, pages_to_crawl)
+    # Read user input and initialize writer
+    store_name, country_code, pages_to_crawl = get_user_input()
+    raw_writer = get_csv_writer("%s_raw.csv" % store_name, raw_field_names)
+    raw_writer.writeheader()
+    shopee_dataframe = pd.DataFrame([])
 
-if sku_id_list:
-    times_to_query = int(len(sku_id_list) / 20)  # One time can only query 20 skus
-    for i in range(times_to_query):
-        # Get sku details
-        response_sku = api_shopping.execute('GetMultipleItems', {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
-                                                                 'IncludeSelector': 'Details'}).dict()["Item"]
+    # Initialize API connection
+    api_finding = Finding(appid=ebay_app_id, config_file=None, siteid=country_code)
+    api_shopping = Shopping(appid=ebay_app_id, config_file=None, siteid=country_code)
+    print "API Connection established"
 
-        # Get sku variations
-        response_variations = api_shopping.execute('GetMultipleItems',
-                                                   {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
-                                                    'IncludeSelector': 'Variations'}).dict()["Item"]
+    # Find Item IDs in the store
+    sku_id_list = get_sku_id_list(store_name, pages_to_crawl)
+    print "SKU ID information is obtained from API"
 
-        # Get sku descriptions
-        response_descriptions = api_shopping.execute('GetMultipleItems',
-                                                     {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
-                                                      'IncludeSelector': 'TextDescription'}).dict()["Item"]
+    if sku_id_list:
+        times_to_query = int(len(sku_id_list) / 20)  # One time can only query 20 skus
+        print "Start to crawl info for each sku..."
 
-        # Parse the api response and store them into 2 files
-        parse_sku_details_raw(details=response_sku, variations=response_variations, descriptions=response_descriptions,
-                              raw_writer=raw_writer)
-        shopee_dataframe = pd.concat([shopee_dataframe,
-                                      parse_sku_details_shopee(details=response_sku, variations=response_variations,
-                                                               descriptions=response_descriptions)])
+        for i in range(times_to_query):
+            # Get sku details
+            response_sku = api_shopping.execute('GetMultipleItems', {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
+                                                                     'IncludeSelector': 'Details'}).dict()["Item"]
 
-    # In case there are skus that have not been crawled
-    if times_to_query * 20 < len(sku_id_list):
-        response_sku = api_shopping.execute('GetMultipleItems', {'ItemID': sku_id_list[times_to_query * 20:],
-                                                                 'IncludeSelector': 'Details'}).dict()["Item"]
-        response_variations = api_shopping.execute('GetMultipleItems',
-                                                   {'ItemID': sku_id_list[times_to_query * 20:],
-                                                    'IncludeSelector': 'Variations'}).dict()["Item"]
-        parse_sku_details_raw(details=response_sku, variations=response_variations, descriptions=response_descriptions,
-                              raw_writer=raw_writer)
-        shopee_dataframe = pd.concat([shopee_dataframe,
-                                      parse_sku_details_shopee(details=response_sku, variations=response_variations,
-                                                               descriptions=response_descriptions)])
-    excel_writer = pd.ExcelWriter(store_name + ".xlsx")
-    shopee_dataframe = shopee_dataframe[shopee_field_names]
-    shopee_dataframe.to_excel(excel_writer, 'Sheet1', index=False)
-    excel_writer.save()
-else:
+            # Get sku variations
+            response_variations = api_shopping.execute('GetMultipleItems',
+                                                       {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
+                                                        'IncludeSelector': 'Variations'}).dict()["Item"]
 
-    # In case this store has no skus
-    print "Store %s does not have any available items" % store_name
+            # Get sku descriptions
+            response_descriptions = api_shopping.execute('GetMultipleItems',
+                                                         {'ItemID': sku_id_list[i * 20:(i + 1) * 20],
+                                                          'IncludeSelector': 'TextDescription'}).dict()["Item"]
+
+            # Parse the api response and store them into 2 files
+            parse_sku_details_raw(details=response_sku, variations=response_variations,
+                                  descriptions=response_descriptions,
+                                  raw_writer=raw_writer)
+            shopee_dataframe = pd.concat([shopee_dataframe,
+                                          parse_sku_details_shopee(details=response_sku, variations=response_variations,
+                                                                   descriptions=response_descriptions)])
+            print "%s SKUs are crawled" % str((i + 1) * 20)
+
+        # In case there are skus that have not been crawled
+        # If there are 21 skus, the last sku will be crawled by the following code
+        if times_to_query * 20 < len(sku_id_list):
+            response_sku = api_shopping.execute('GetMultipleItems', {'ItemID': sku_id_list[times_to_query * 20:],
+                                                                     'IncludeSelector': 'Details'}).dict()["Item"]
+            response_variations = api_shopping.execute('GetMultipleItems',
+                                                       {'ItemID': sku_id_list[times_to_query * 20:],
+                                                        'IncludeSelector': 'Variations'}).dict()["Item"]
+            parse_sku_details_raw(details=response_sku, variations=response_variations,
+                                  descriptions=response_descriptions,
+                                  raw_writer=raw_writer)
+            shopee_dataframe = pd.concat([shopee_dataframe,
+                                          parse_sku_details_shopee(details=response_sku, variations=response_variations,
+                                                                   descriptions=response_descriptions)])
+
+        print "All SKU info is crawled"
+
+        # Write to file
+        excel_writer = pd.ExcelWriter("%s_shopee_format.xlsx" % store_name)
+        shopee_dataframe = shopee_dataframe[shopee_field_names]
+        shopee_dataframe.to_excel(excel_writer, 'Sheet1', index=False)
+        excel_writer.save()
+        print "Data is written to files"
+    else:
+
+        # In case this store has no skus
+        print "Store %s does not have any available items" % store_name
+
+
+main()

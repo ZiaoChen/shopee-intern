@@ -5,12 +5,15 @@ import time
 import json
 import csv
 import signal
+import pandas as pd
 
 # Config Variables
 path = os.path.dirname(os.path.realpath(__file__))
 seller_url_base = 'http://www.wish.com/merchant/%s'
 sku_url_base = 'http://www.wish.com/c/%s'
 wish_url = 'http://www.wish.com'
+username = "466930995@qq.com"
+password = "xiuyan@0213"
 fieldnames = ['ps_product_name',
               'ps_gender',
               'ps_url',
@@ -162,7 +165,6 @@ fieldnames = ['ps_product_name',
               'ps_variation 15 ps_variation_color',
               'ps_variation 15 ps_variation_shipping_fee'
               ]
-
 fieldnames_shopee = [
     'ps_category_list_id',
     'ps_product_name',
@@ -331,7 +333,7 @@ def get_sku_details(sku_json):
     return sku
 
 
-def get_sku(sku_url):
+def get_sku(sku_url, temp_writer):
     """
     Go to sku page
     :param sku_url:
@@ -354,7 +356,9 @@ def get_sku(sku_url):
     # Get sku info from script json
     sku_json = json.loads(script_content.rsplit(";", 5)[0].split(" = ", 1)[1])
     browser_sku.quit()
-    return get_sku_details(sku_json)
+    sku_dict = get_sku_details(sku_json)
+    temp_writer.writerow(filter_sku_attributes(sku_dict, fieldnames))
+    return sku_dict
 
 
 def filter_sku_attributes(sku, fieldnames):
@@ -374,63 +378,87 @@ def filter_sku_attributes(sku, fieldnames):
     return filtered
 
 
-# Get user input
-no_skus = int(input("Please input number of skus to crawl: "))
+def login(browser_main):
+    """
+    Login
+    :param browser_main:
+    :return:
+    """
+    browser_main.find_element_by_xpath("//div[@class='email-login-btn btn']").click()
+    username_element = browser_main.find_element_by_id("login-email")
+    password_element = browser_main.find_element_by_id("login-password")
+    username_element.send_keys(username)
+    password_element.send_keys(password)
+    browser_main.find_element_by_xpath("//button[@class='submit-btn btn']").click()
+    browser_main.set_window_size(500, 500)
+    time.sleep(3)
+    print "Successfully logined"
 
-# Read seller name
-input_csv = open('%s\\Input\\Seller.csv' % path)
-seller_csv = csv.DictReader(input_csv)
 
-# Initialize output files
-output_csv = open("%s\\Result.csv" % path, "wb")
-output_csv_shopee = open("%s\\Result (Shopee Format).csv" % path, "wb")
-writer = csv.DictWriter(open("%s\\Result.csv" % path, "wb"), fieldnames=fieldnames)
-writer_shopee_format = csv.DictWriter(open("%s\\Result (Shopee Format).csv" % path, "wb"), fieldnames=fieldnames_shopee)
-writer.writeheader()
-writer_shopee_format.writeheader()
+def main():
+    """
+    Main Function
+    :return:
+    """
 
-# Start Selenium
-browser_main = webdriver.PhantomJS()
-# browser_main = webdriver.Chrome('chromedriver')
-browser_main.get(wish_url)
+    # Get user input
+    no_skus = int(input("Please input number of skus to crawl: "))
 
-# User login
-browser_main.find_element_by_xpath("//div[@class='email-login-btn btn']").click()
-username = browser_main.find_element_by_id("login-email")
-password = browser_main.find_element_by_id("login-password")
-username.send_keys("466930995@qq.com")
-password.send_keys("xiuyan@0213")
-browser_main.find_element_by_xpath("//button[@class='submit-btn btn']").click()
-browser_main.set_window_size(500, 500)
-time.sleep(3)
+    # Read seller name
+    input_csv = open('%s\\Input\\Seller.csv' % path)
+    seller_csv = csv.DictReader(input_csv)
+    print "User input obtained"
 
-# Crawl info for each seller
-for seller in seller_csv:
-    seller_url = seller_url_base % (seller["Name"])
-    browser_main.get(seller_url)
-    times_to_scroll = int((no_skus - 58) / 10) + 1
+    # Initialize temp file writer
+    temp_writer = csv.DictWriter(open("%s\\temp.csv" % path, "wb"), fieldnames=fieldnames)
+    temp_writer.writeheader()
 
-    # Scroll down the page to get more skus
-    print "Start scrolling"
-    for _ in range(times_to_scroll):
-        browser_main.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1)
-    sku_list = browser_main.find_elements_by_class_name("feed-product-item")
-    print "Find %s skus to crawl" % min(no_skus, len(sku_list))
+    # Start Selenium
+    browser_main = webdriver.PhantomJS()
+    # browser_main = webdriver.Chrome('chromedriver')
+    browser_main.get(wish_url)
 
-    # Crawl detailed information for each sku
-    for i in range(min(no_skus, len(sku_list))):
-        sku_url = sku_list[i].find_element_by_tag_name("a").get_attribute('href')
-        print sku_url
-        sku = get_sku(sku_url)
-        writer.writerow(filter_sku_attributes(sku, fieldnames))
-        writer_shopee_format.writerow(filter_sku_attributes(sku, fieldnames_shopee))
+    # User login
+    login(browser_main)
 
-# Close files and browser
+    # Crawl info for each seller
+    for seller in seller_csv:
+        raw_dataframe = pd.DataFrame([])
+        shopee_dataframe = pd.DataFrame([])
+        raw_writer = pd.ExcelWriter("%s.xlsx" % seller["Name"])
+        shopee_writer = pd.ExcelWriter("%s_shopee_format.xlsx" % seller["Name"])
+        seller_url = seller_url_base % (seller["Name"])
+        browser_main.get(seller_url)
+        times_to_scroll = int((no_skus - 58) / 10) + 1
 
-output_csv.close()
-input_csv.close()
-output_csv_shopee.close()
-browser_main.service.process.send_signal(signal.SIGTERM)
-browser_main.quit()
+        # Scroll down the page to get more skus
+        print "Start scrolling"
+        for _ in range(times_to_scroll):
+            browser_main.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+        sku_list = browser_main.find_elements_by_class_name("feed-product-item")
+        print "Find %s skus to crawl" % min(no_skus, len(sku_list))
 
+        # Crawl detailed information for each sku
+        for i in range(min(no_skus, len(sku_list))):
+            sku_url = sku_list[i].find_element_by_tag_name("a").get_attribute('href')
+            print sku_url
+            sku = get_sku(sku_url, temp_writer)
+            raw_dataframe = pd.concat([raw_dataframe, pd.DataFrame.from_dict([filter_sku_attributes(sku, fieldnames)])])
+            shopee_dataframe = pd.concat(
+                [shopee_dataframe, pd.DataFrame.from_dict([filter_sku_attributes(sku, fieldnames_shopee)])])
+            # writer.writerow(filter_sku_attributes(sku, fieldnames))
+            # writer_shopee_format.writerow(filter_sku_attributes(sku, fieldnames_shopee))
+        raw_dataframe.to_excel(raw_writer, "Sheet1", index=False)
+        shopee_dataframe.to_excel(shopee_writer, "Sheet1", index=False)
+
+    # Close files and browser
+
+    # output_csv.close()
+    input_csv.close()
+    # output_csv_shopee.close()
+    browser_main.service.process.send_signal(signal.SIGTERM)
+    browser_main.quit()
+
+
+main()

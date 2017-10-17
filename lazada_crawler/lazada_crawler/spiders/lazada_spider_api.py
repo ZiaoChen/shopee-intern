@@ -14,6 +14,28 @@ class LazadaSpiderAPI(scrapy.Spider):
 
     base_url = 'http://www.lazada.%s/mobapi/%s/?sort=name&dir=asc&page=%s&maxitems=400'
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     output_path = "%s.csv"
 
     field_names = ['id', 'name', 'sku', 'url', 'description', 'price', 'special_price', 'rating', 'brand', 'categories',

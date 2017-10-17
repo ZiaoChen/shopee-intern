@@ -243,6 +243,13 @@ shopee_field_names = [
 
 
 def output_to_excel(whole_dataframe, seller):
+    """
+    Output to excel
+    :param whole_dataframe:
+    :param seller:
+    :return:
+    """
+
     excel_writer = pd.ExcelWriter(seller + ".xlsx")
     whole_dataframe = whole_dataframe[shopee_field_names]
 
@@ -314,7 +321,7 @@ def main():
         # Get user input
         seller = raw_input("Please input seller's name in the url: ")
         country = raw_input("Please input seller's country: ")
-        pages_to_crawl = int(input("Please input the number of pages to crawl: "))
+        pages_to_crawl = int(input("Please input the number of pages to crawl (300 per page): "))
 
         # Initialize excel writer
 
