@@ -1,22 +1,14 @@
 import csv
 from collections import defaultdict
-import os
-import urllib
 from PIL import Image
 import imagehash
-import glob
-from numpy import zeros
 import ast
 import Levenshtein
 import time
-import cStringIO
 import Queue
-import threading
 from io import BytesIO
-import requests
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 import grequests
+from collections import OrderedDict
 
 count_global = 0
 q = Queue.Queue()
@@ -99,64 +91,77 @@ def item_similarity(a, b):
 
 def get_hashed_string(sid):
     hashed = {}
-    f = csv.reader(open('%s.csv' % sid, 'rb'))
+    f = csv.reader(open('Hash_Files/%s.csv' % sid, 'rb'))
     f.next()
     for row in f:
-        hashed[row[0]] = list(set(ast.literal_eval(row[1])))
+        hashed[row[0]] = list(sorted(set(ast.literal_eval(row[1]))))
 
-    return hashed
+    return OrderedDict(sorted(hashed.items(), key=lambda t: len(str(sorted(t[1])))))
 
+
+def product_match(shop_a, shop_b):
+    start = time.time()
+    shop_b_original = dict(shop_b)
+    shop_b_popped = dict()
+    counter = 0
+    for i in shop_a:
+        d_min = float("inf")
+        pair_b = 0
+        count = 0
+        for j in shop_b_original:
+            d = item_similarity(shop_a[i], shop_b_original[j])
+            count += 1
+
+            if d == 0:
+                pair_b = j
+                d_min = 0
+
+                # Remove if matched
+                shop_b_popped[j] = shop_b_original[j]
+                del shop_b_original[j]
+                break
+
+            elif d < d_min:
+                d_min = d
+                pair_b = j
+
+        # Check popped list if cannot find match in remaining list
+        if d_min != 0:
+            for j in shop_b_popped:
+                d = item_similarity(shop_a[i], shop_b_popped[j])
+                if d < d_min:
+                    pair_b = j
+                    d_min = 0
+
+        writer.writerow([i, pair_b, d_min])
+        counter = counter + 1
+        print counter
+    print time.time() - start
+
+def remove_duplicate(shop):
+    print len(shop) - len(set(str(sorted(value))for value in shop.values()))
+
+    image_str_list = []
+    for itemid, image_list in shop.items():
+        item_image_str = str(sorted(image_list))
+        if item_image_str in image_str_list:
+            del shop[itemid]
+        else:
+            image_str_list.append(item_image_str)
+    return shop
 
 sku = format_url()
 shop = sku.keys()
 
-for s, i in sku.items():
-    # dir = build_directory("%s" % s)
-    download_image(s, i)
-    # picture_hashing(s, dir)
+# for s, i in sku.items():
+#     # dir = build_directory("%s" % s)
+#     download_image(s, i)
+#     # picture_hashing(s, dir)
 
 writer = csv.writer(open('%s_%s.csv' % (shop[0],shop[1]), 'wb'))
 writer.writerow(['Shop_%s' % shop[0], 'Shop_%s' % shop[1], 'Difference_score'])
 
 shop_a = get_hashed_string(shop[0])
 shop_b = get_hashed_string(shop[1])
-paired = []
-start = time.time()
-shop_b_original = dict(shop_b)
-shop_b_popped = dict()
-counter = 0
-for i in shop_a:
-    d_min = float("inf")
-    # d_min = 20
-    pair_b = 0
-    count = 0
-    for j in shop_b_original:
-        d = item_similarity(shop_a[i], shop_b_original[j])
-        count += 1
-        # print count
-        if d == 0:
-            pair_b = j
-            d_min = 0
-
-            # Remove if matched
-            shop_b_popped[j] = shop_b_original[j]
-            del shop_b_original[j]
-
-            break
-
-        elif d < d_min:
-            d_min = d
-            pair_b = j
-
-    # Check popped list if cannot find match in remaining list
-    if d_min != 0:
-        for j in shop_b_popped:
-            d = item_similarity(shop_a[i], shop_b_popped[j])
-            if d < d_min:
-                pair_b = j
-                d_min = 0
-
-    writer.writerow([i, pair_b, d_min])
-    counter = counter + 1
-    print counter
-print time.time() - start
+shop_b = remove_duplicate(shop_b)
+product_match(shop_a, shop_b)
