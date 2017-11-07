@@ -128,6 +128,10 @@ options_with_js = ChromeOptions()
 options_with_js.add_argument('--disable-popup-blocking')
 options_with_js.add_experimental_option("prefs", {'profile.managed_default_content_settings.images': 2})
 
+options_with_js_image = ChromeOptions()
+options_with_js_image.add_argument('--disable-popup-blocking')
+
+
 
 def login(browser):
     """
@@ -177,16 +181,27 @@ def get_item_details(item, browser, with_js):
     # browser = webdriver.Chrome('chromedriver')
     print "Getting item details from: %s" % item_url
 
-    browser.get(item_url)
+    # browser.get(item_url)
+    #
+    # print "Web Page loaded"
+    # if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
+    #     login(browser)
+    while 1:
+        try:
+            browser.get(item_url)
 
-    print "Web Page loaded"
-    if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
-        login(browser)
-    item_dict_raw["ps_url"] = item_url
-    item_dict_raw["ps_product_name"] = WebDriverWait(browser, 5).until(
-        EC.presence_of_element_located((By.CLASS_NAME, 'product-name'))).text
-    item_dict_raw["ps_original_price"] = float(WebDriverWait(browser, 5).until(
-        EC.presence_of_element_located((By.ID, "j-sku-price"))).text.split("-")[0])
+            print "Web Page loaded"
+            if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
+                login(browser)
+            item_dict_raw["ps_url"] = item_url
+            item_dict_raw["ps_product_name"] = WebDriverWait(browser, 20).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'product-name'))).text
+            item_dict_raw["ps_original_price"] = float(WebDriverWait(browser, 20).until(
+                EC.presence_of_element_located((By.ID, "j-sku-price"))).text.split("-")[0])
+            break
+        except:
+            print "Please do sliding or input captcha"
+            time.sleep(10)
 
     # Some items may not have discount price
     try:
@@ -212,17 +227,43 @@ def get_item_details(item, browser, with_js):
                                                                                                                  ""))
     # Get property
     print "Getting item properties..."
-    property_name_list = browser.find_elements_by_class_name("property-title")
-    property_value_list = browser.find_elements_by_class_name("property-des")
-    for i in range(len(property_name_list)):
-        if property_name_list[i].text == "Weight:":
-            item_dict_raw["ps_product_weight"] = property_value_list[i].text
-        elif property_name_list[i].text == "Size:":
-            item_dict_raw["ps_size"] = property_value_list[i].text
+    property_list = (browser.find_elements_by_class_name('p-property-item'))
+    variation_list = []
+    variation_count = 0
+    variation_type = ""
+    for property in property_list:
+        property_name = property.find_element_by_class_name('p-item-title').text
+        if "Size" in property_name or "size" in property_name:
+            variation_list = property.find_elements_by_tag_name('a')
+            variation_type = "size"
+        elif "Color" in property_name or "color" in property_name:
+            variation_list = property.find_elements_by_tag_name('a')
+            variation_type = "color"
+
+    for variation in variation_list:
+        variation_count += 1
+        if variation_count > 15:
+            break
+        if variation_type == "size":
+            if variation.get_attribute('id') != 'sizing-info-btn':
+                item_dict_raw['ps_variation %d ps_variation_name' %variation_count] = item_dict_raw["ps_product_name"] + "_" + variation.find_element_by_tag_name('span').text
+            else:
+                variation_count -= 1
+        else:
+            item_dict_raw['ps_variation %d ps_variation_name' % variation_count] = item_dict_raw[
+                                                                                       "ps_product_name"] + "_" + variation.get_attribute("title")
+    # property_name_list = browser.find_elements_by_class_name("property-title")
+    # property_value_list = browser.find_elements_by_class_name("property-des")
+    # for i in range(len(property_name_list)):
+    #     if property_name_list[i].text == "Weight:":
+    #         item_dict_raw["ps_product_weight"] = property_value_list[i].text
+    #     elif property_name_list[i].text == "Size:":
+    #         item_dict_raw["ps_size"] = property_value_list[i].text
 
     img_list = browser.find_elements_by_class_name("img-thumb-item")
     for i in range(min(no_of_images, len(img_list))):
-        item_dict_raw["ps_img_%s" % str(i + 1)] = img_list[i].find_element_by_tag_name("img").get_attribute("src")
+        item_dict_raw["ps_img_%s" % str(i + 1)] = img_list[i].find_element_by_tag_name("img").get_attribute("src").replace('.jpg_50x50',"")
+
 
     print "Crawled data: %s" % str(item_dict_raw)
     print "Takes %ss" % str(int(time.time() - start))
@@ -238,23 +279,34 @@ def main():
     pages_to_crawl = int(no_items / 50) + 1
 
     # Start the browser
-    browser = webdriver.Chrome("chromedriver", chrome_options=options_with_js)
+    browser = webdriver.Chrome("chromedriver")
     # browser = webdriver.PhantomJS()
-    browser.get(base_url % (store_name, store_id))
+    while 1:
+        try:
+            browser.get(base_url % (store_name, store_id))
 
-    # Check Login
-    if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
-        login(browser)
+            # Check Login
+            if "Buy Products Online from China Wholesalers at Aliexpress" in browser.title:
+                login(browser)
 
-    # Get maximum pages available
-    available_pages = browser.find_elements_by_xpath("//div[@class='ui-pagination-navi util-left']/a")
-    if len(available_pages) > 0:
-        max_page = int(available_pages[-2].text)
-    else:
-        max_page = 1
+            # Get maximum pages available
+            available_pages = browser.find_elements_by_xpath("//div[@class='ui-pagination-navi util-left']/a")
 
-    # Get seller name
-    seller_name = browser.find_element_by_xpath("//span[@class='shop-name']/a").text
+            if len(available_pages) > 0:
+                max_page = int(available_pages[-2].text)
+            else:
+                max_page = 1
+
+            # Get seller name
+            seller_name = browser.find_element_by_xpath("//span[@class='shop-name']/a").text
+            break
+        except:
+            print "Please do sliding"
+            time.sleep(10)
+            pass
+
+
+
 
     # Hover the title bar to get ratings
     print "Get ratings..."
@@ -283,9 +335,11 @@ def main():
     raw_writer = csv.DictWriter(open("%s_temp.csv" % seller_name,"wb"), fieldnames=raw_field_names)
     raw_writer.writeheader()
     if with_js:
-        item_browser = webdriver.Chrome("chromedriver", chrome_options=options_with_js)
+        item_browser = webdriver.Chrome("chromedriver")
+    # browser = webdriver.PhantomJS())
     else:
-        item_browser = webdriver.Chrome("chromedriver", chrome_options=options)
+        item_browser = webdriver.Chrome("chromedriver")
+    # browser = webdriver.PhantomJS())
 
     counter = 0
     for page in range(1, min(max_page, pages_to_crawl) + 1):
