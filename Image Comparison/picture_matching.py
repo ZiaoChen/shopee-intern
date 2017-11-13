@@ -125,17 +125,10 @@ def item_similarity(a, b):
         d_min = float("inf")
         for j in b_temp:
             d = Levenshtein.distance(i, j)
-            # d = wagner_fischer(i, j)
             if d < d_min:
                 d_min = d
-                # temp = j
-        # b_temp.remove(temp)
         if d_min == 0:
-            num_of_zero = num_of_zero + 1
-            # if result > d_min:
-            #     result = d_min
-    # a_avg = float(a_avg / len(a))
-    # return a_avg
+            num_of_zero += 1
     if num_of_zero > 1:
         return True
     else:
@@ -161,14 +154,6 @@ def get_item_id_image(sid, file, dup_list):
             sku[row['item_itemid']] = list(sorted(set(row['item_images'].split(','))))
     return sku
 
-    # hashed = {}
-    # f = csv.reader(open('input/input2.csv','rb'))
-    # f.next()
-    # for row in f:
-    #     hashed[row[1]] = list(sorted(set(row[3].split(','))))
-    # # return OrderedDict(sorted(hashed.items(), key=lambda t: len(str(sorted(t[1])))))
-    # return hashed
-
 
 def get_item_id_image_url(sid, file, dup_list):
     sku = defaultdict(dict)
@@ -181,47 +166,20 @@ def get_item_id_image_url(sid, file, dup_list):
 
 
 def product_match(shop_a, shop_b, writer):
-    start = time.time()
     shop_b_original = dict(shop_b)
-    # shop_b_popped = dict()
-    counter = 0
     not_match_list = []
     for i in shop_a:
         d_min = float("inf")
-        # pair_b = 0
         count = 0
         for j in shop_b_original:
             d = item_similarity(shop_a[i], shop_b_original[j])
             count += 1
-
             if d:
-                # pair_b = j
                 d_min = 0
-
-                # Remove if matched
-                # shop_b_popped[j] = shop_b_original[j]
-                # del shop_b_original[j]
-
                 print "Find at %d" % count
                 break
-
-                # elif d < d_min:
-                #     d_min = d
-                #     pair_b = j
-
-        # Check popped list if cannot find match in remaining list
-        # if d_min != 0:
-        #     for j in shop_b_popped:
-        #         d = item_similarity(shop_a[i], shop_b_popped[j])
-        #         if d:
-        #             # pair_b = j
-        #             d_min = 0
         if d_min != 0:
             not_match_list.append(i)
-            # writer.writerow([i, pair_b, d_min])
-        counter = counter + 1
-        print counter
-    print time.time() - start
     return not_match_list
 
 
@@ -246,7 +204,7 @@ def get_duplicate_parent_sku_list(sid1, sid2, file):
     for row in file:
         if row["item_shopid"] == sid2 and row["parent_sku"] in parent_sku_list:
             duplicate_parent_sku_list.add(row["parent_sku"])
-    print len(duplicate_parent_sku_list)
+    print "Number of Duplicate Skus: %d" % len(duplicate_parent_sku_list)
     return list(duplicate_parent_sku_list)
 
 
@@ -258,14 +216,6 @@ def get_shop_id(file):
 
 
 start = time.time()
-# sku = format_url()
-# shop = sku.keys()
-#
-# for s, i in sku.items():
-#     # dir = build_directory("%s" % s)
-#    download_image(s, i, parallel=False)
-#     # picture_hashing(s, dir)
-#
 file = list(csv.DictReader(open(input_file_path)))
 shop_id_list = get_shop_id(file)
 writer = csv.DictWriter(open('Result.csv', 'wb'), fieldnames=dict_header)
@@ -274,10 +224,7 @@ dup_list = get_duplicate_parent_sku_list(shop_id_list[0], shop_id_list[1], file)
 
 shop_a = get_item_id_image(shop_id_list[0], file, dup_list)
 shop_b = get_item_id_image(shop_id_list[1], file, dup_list)
-# shop_a = get_item_id_image_url(shop_id_list[0], file, dup_list)
-# shop_b = get_item_id_image_url(shop_id_list[1], file, dup_list)
-# download_image(shop_id_list[0], shop_a)
-# download_image(shop_id_list[1], shop_b)
+
 if len(shop_a) < len(shop_b):
     temp = shop_a
     shop_a = shop_b
@@ -286,18 +233,10 @@ if len(shop_a) < len(shop_b):
     shop_id_list[0] = shop_id_list[1]
     shop_id_list[1] = temp
 
-# writer.writerow(['Shop_%s' % shop_id_list[0], 'Shop_%s' % shop_id_list[1], 'Difference_score'])
-#writer.writerow(file[0].keys())
 writer.writeheader()
 shop_b = remove_duplicate(shop_b)
-# shop_a = get_hashed_string(shop_id_list[0])
-# shop_b = get_hashed_string(shop_id_list[1])
 not_match_list = product_match(shop_a, shop_b, writer)
 for row in file:
     if row["item_itemid"] in not_match_list:
-        # new_dict = OrderedDict()
-        # for column in dict_header:
-        #     new_dict[column] = row[column]
-        # writer.writerow(new_dict.values())
         writer.writerow(row)
-print time.time() - start
+print "The program takes: %s" % str(time.time() - start)

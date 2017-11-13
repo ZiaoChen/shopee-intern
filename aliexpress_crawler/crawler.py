@@ -132,7 +132,6 @@ options_with_js_image = ChromeOptions()
 options_with_js_image.add_argument('--disable-popup-blocking')
 
 
-
 def login(browser):
     """
     Function to let user login
@@ -160,9 +159,10 @@ def get_user_input():
     store_name = raw_input("Please input the store name: ")
     store_id = raw_input("Please input the store id: ")
     no_items = int(input("Please input the number of items to crawl: "))
-    with_js = int(input("Please choose to crawl stock and shipping fee (1 for yes, 0 for no): "))
-    while with_js != 1 and with_js != 0:
-        with_js = int(input("Please only reply 1 or 0: "))
+    with_js = True
+    # with_js = int(input("Please choose to crawl stock and shipping fee (1 for yes, 0 for no): "))
+    # while with_js != 1 and with_js != 0:
+    #     with_js = int(input("Please only reply 1 or 0: "))
 
     return (store_name, store_id, no_items, with_js)
 
@@ -209,10 +209,11 @@ def get_item_details(item, browser, with_js):
     except:
         pass
 
+    item_dict_raw['ps_product_description'] = browser.find_element_by_class_name('product-property-list').text.replace("\n"," ")
 
-    if with_js:
-        item_dict_raw["ps_shipping_fee"] = browser.find_element_by_class_name("logistics-cost").text
-        item_dict_raw["ps_days_to_ship"] = int(browser.find_element_by_class_name("shipping-days").text.split("-")[0])
+    # if with_js:
+    item_dict_raw["ps_shipping_fee"] = browser.find_element_by_class_name("logistics-cost").text
+    item_dict_raw["ps_days_to_ship"] = int(browser.find_element_by_class_name("shipping-days").text.split("-")[0])
 
     # Item may never be bought
     try:
@@ -246,12 +247,15 @@ def get_item_details(item, browser, with_js):
             break
         if variation_type == "size":
             if variation.get_attribute('id') != 'sizing-info-btn':
-                item_dict_raw['ps_variation %d ps_variation_name' %variation_count] = item_dict_raw["ps_product_name"] + "_" + variation.find_element_by_tag_name('span').text
+                item_dict_raw['ps_variation %d ps_variation_name' % variation_count] = item_dict_raw[
+                                                                                           "ps_product_name"] + "_" + variation.find_element_by_tag_name(
+                    'span').text
             else:
                 variation_count -= 1
         else:
             item_dict_raw['ps_variation %d ps_variation_name' % variation_count] = item_dict_raw[
-                                                                                       "ps_product_name"] + "_" + variation.get_attribute("title")
+                                                                                       "ps_product_name"] + "_" + variation.get_attribute(
+                "title")
     # property_name_list = browser.find_elements_by_class_name("property-title")
     # property_value_list = browser.find_elements_by_class_name("property-des")
     # for i in range(len(property_name_list)):
@@ -262,8 +266,8 @@ def get_item_details(item, browser, with_js):
 
     img_list = browser.find_elements_by_class_name("img-thumb-item")
     for i in range(min(no_of_images, len(img_list))):
-        item_dict_raw["ps_img_%s" % str(i + 1)] = img_list[i].find_element_by_tag_name("img").get_attribute("src").replace('.jpg_50x50',"")
-
+        item_dict_raw["ps_img_%s" % str(i + 1)] = img_list[i].find_element_by_tag_name("img").get_attribute(
+            "src").replace('.jpg_50x50', "")
 
     print "Crawled data: %s" % str(item_dict_raw)
     print "Takes %ss" % str(int(time.time() - start))
@@ -305,9 +309,6 @@ def main():
             time.sleep(10)
             pass
 
-
-
-
     # Hover the title bar to get ratings
     print "Get ratings..."
     ActionChains(browser).move_to_element(browser.find_element_by_class_name("store-rank")).perform()
@@ -332,7 +333,7 @@ def main():
     # Start to get data
     raw_dataframe = pd.DataFrame([])
     shopee_dataframe = pd.DataFrame([])
-    raw_writer = csv.DictWriter(open("%s_temp.csv" % seller_name,"wb"), fieldnames=raw_field_names)
+    raw_writer = csv.DictWriter(open("%s_temp.csv" % seller_name, "wb"), fieldnames=raw_field_names)
     raw_writer.writeheader()
     if with_js:
         item_browser = webdriver.Chrome("chromedriver")
@@ -379,7 +380,6 @@ def main():
             browser.find_element_by_xpath(
                 "//div[@class='ui-pagination-navi util-left']/a[text()='%s']" % str(page + 1)).click()
 
-
     raw_writer = pd.ExcelWriter("%s.xlsx" % seller_name)
     raw_dataframe = raw_dataframe[raw_field_names]
     raw_dataframe.to_excel(raw_writer, "Sheet1", index=False)
@@ -395,7 +395,6 @@ def main():
     item_browser.quit()
     browser.service.process.send_signal(signal.SIGTERM)
     browser.quit()
-
 
 
 main()
