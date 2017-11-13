@@ -2,15 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="004e5e6c-6ac4-434a-ab62-411cbdcf481e" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Livingcraft Museum Store.xlsx" afterPath="$PROJECT_DIR$/Livingcraft Museum Store.xlsx" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Livingcraft Museum Store_shopee_format.xlsx" afterPath="$PROJECT_DIR$/Livingcraft Museum Store_shopee_format.xlsx" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../Image Comparison/.idea/workspace.xml" afterPath="$PROJECT_DIR$/../Image Comparison/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../Image Comparison/picture_matching.py" afterPath="$PROJECT_DIR$/../Image Comparison/picture_matching.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Livingcraft Museum Store_temp.csv" afterPath="$PROJECT_DIR$/Livingcraft Museum Store_temp.csv" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/crawler.py" afterPath="$PROJECT_DIR$/crawler.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../ebay-crawler/.idea/workspace.xml" afterPath="$PROJECT_DIR$/../ebay-crawler/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../lazada_number_of_skus/.idea/workspace.xml" afterPath="$PROJECT_DIR$/../lazada_number_of_skus/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../lazada_number_of_skus/crawler.py" afterPath="$PROJECT_DIR$/../lazada_number_of_skus/crawler.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../lazada_number_of_skus/result.csv" afterPath="$PROJECT_DIR$/../lazada_number_of_skus/result.csv" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../lazada_number_of_skus/my_result.csv" afterPath="$PROJECT_DIR$/../lazada_number_of_skus/my_result.csv" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -28,8 +23,8 @@
       <file leaf-file-name="crawler.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/crawler.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1165">
-              <caret line="124" column="65" lean-forward="true" selection-start-line="124" selection-start-column="65" selection-end-line="124" selection-end-column="67" />
+            <state relative-caret-position="153">
+              <caret line="380" column="100" lean-forward="false" selection-start-line="380" selection-start-column="95" selection-end-line="380" selection-end-column="100" />
               <folding>
                 <element signature="e#0#30#0" expanded="true" />
                 <element signature="e#394#3218#0" expanded="false" />
@@ -375,8 +370,8 @@
     <entry file="file://$PROJECT_DIR$/test_multithread.py" />
     <entry file="file://$PROJECT_DIR$/crawler.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1165">
-          <caret line="124" column="65" lean-forward="true" selection-start-line="124" selection-start-column="65" selection-end-line="124" selection-end-column="67" />
+        <state relative-caret-position="153">
+          <caret line="380" column="100" lean-forward="false" selection-start-line="380" selection-start-column="95" selection-end-line="380" selection-end-column="100" />
           <folding>
             <element signature="e#0#30#0" expanded="true" />
             <element signature="e#394#3218#0" expanded="false" />

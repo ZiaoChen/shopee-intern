@@ -1,24 +1,23 @@
 from selenium import webdriver
 from selenium.webdriver import ChromeOptions
-import pandas as pd
-import time
-import signal
-from selenium.webdriver.common.action_chains import ActionChains
 import csv
 
-
+# Please put all level2 and level3 categories that do not need to crawl
+# To change level 1 category, please change get_level1 and get_leve2_level3 function
 level2_excluding_list = [
     "Latest Tech in Town",
     "Lazada Gaming Zone",
     "Electronic Accessories",
     "Express Electronics",
     "Top",
+    "TOP",
     "Promotion",
     "Click For Taobao",
     "%",
     "Trends",
     "TREND",
     "brand",
+    "BRAND",
     "Food Vouchers",
     "Build your own PC",
     "Daily tech essentials",
@@ -29,12 +28,19 @@ level2_excluding_list = [
     "New In!",
     "Free Shipping for Orders Above $20",
     "Promo",
-    "PARTNER OFFERS"
+    "PARTNER OFFERS",
+    "below RM",
+    "RM",
+    "Buying Guide"
 ]
 
+# Lazada url
 lazada_url_sg = "https://www.lazada.sg"
 lazada_url_id = "https://www.lazada.co.id"
 lazada_url_my = "https://www.lazada.com.my"
+lazada_url_ph = "https://www.lazada.com.ph"
+
+# Disable image for Chrome
 options = ChromeOptions()
 options.add_argument('--disable-popup-blocking')
 options.add_experimental_option("prefs", {'profile.managed_default_content_settings.images': 2})
@@ -54,13 +60,15 @@ def in_excluding_list(name):
 
 def get_level1(browser, country):
     """
-    Get Level 1 Category
+    Get Level 1 Category Name
     :param browser:
     :return:
     """
 
     level1_list = browser.find_elements_by_class_name('l-main-navigation__item_style_default')
     if country == 'id':
+
+        # Tabao Collection is at the last tab
         taobao = browser.find_element_by_class_name(
             'l-main-navigation__item_style_bold-orange').find_element_by_tag_name(
             'span').text.encode('utf-8')
@@ -70,16 +78,25 @@ def get_level1(browser, country):
         level1_text_list.append(taobao)
 
     elif country == 'my':
+
+        # Last tab does not need to be crawled
         level1_text_list = []
         for level1 in level1_list:
             level1_text_list.append(level1.find_element_by_tag_name('span').text.encode('utf-8'))
-        level1_text_list = level1_text_list[:len(level1_text_list)-1]
+        level1_text_list = level1_text_list[:len(level1_text_list) - 1]
+        level1_text_list = []
 
-    else:
+    elif country == 'sg':
+
+        # Taobao collection is at first tab
         taobao = browser.find_element_by_class_name(
             'l-main-navigation__item_style_bold-orange').find_element_by_tag_name(
             'span').text.encode('utf-8')
         level1_text_list = [taobao]
+        for level1 in level1_list:
+            level1_text_list.append(level1.find_element_by_tag_name('span').text.encode('utf-8'))
+    else:  # ph
+        level1_text_list = []
         for level1 in level1_list:
             level1_text_list.append(level1.find_element_by_tag_name('span').text.encode('utf-8'))
     return level1_text_list
@@ -94,7 +111,7 @@ def get_count(browser, url):
     """
 
     browser.get(url)
-    prev_length = 200  # Should be greater than 120
+    prev_length = 200  # number of skus with reviews at last page, Should be greater than 120
 
     # Try to find the number of skus
     try:
@@ -104,7 +121,6 @@ def get_count(browser, url):
         count = -1
 
     num_of_reviews = 0
-    # if count != -1:
     page = 0
 
     # Try to get the maximum page available
@@ -114,8 +130,9 @@ def get_count(browser, url):
     except:
         max_page = 1
 
+    # Use maximum page number to guess total number of skus
     if count == -1:
-        count = max_page*120
+        count = max_page * 120
 
     while 1:
         page += 1
@@ -129,11 +146,12 @@ def get_count(browser, url):
             break
 
         # Cannot sort by ratings
+        # When both current page and previous page has less than 120 skus with reviews
         if len(review_list) < 60 and prev_length < 60:
             return count, -1
 
+        # Get maximum 40 pages
         if page > 40:
-            print page
             return count, num_of_reviews
 
         prev_length = len(review_list)
@@ -145,6 +163,7 @@ def get_count(browser, url):
             except:
                 pass
 
+        # Go to next page
         browser.get(url + "&page=%d" % (page + 1))
     print page
     return count, num_of_reviews
@@ -161,17 +180,26 @@ def get_level2_level3(browser, level1_text_list, country, writer):
         category_pane_list = browser.find_elements_by_class_name(
             'l-main-navigation__second-menu-item')
 
-
     elif country == 'my':
         category_pane_list = browser.find_elements_by_class_name(
             'l-main-navigation__second-menu-item')
-        category_pane_list = category_pane_list[:len(category_pane_list)-1]
-    else:
+
+        # Exclude the last category
+        category_pane_list = category_pane_list[:len(category_pane_list) - 1]
+
+    elif country == 'sg':
+
+        # Retain the first category (taobao collection)
+        # Exclude the second and third tab
         category_pane_list = [browser.find_element_by_class_name(
             'l-main-navigation__second-menu-item')] + browser.find_elements_by_class_name(
             'l-main-navigation__second-menu-item')[3:]
+    else:  # ph
 
-    # complete_category_dict = {}
+        # Exclude the first tab
+        category_pane_list = browser.find_elements_by_class_name(
+            'l-main-navigation__second-menu-item')[1:]
+
     level1_counter = 0
     count_browser = webdriver.Chrome("chromedriver", chrome_options=options)
     for level1 in level1_text_list:
@@ -179,7 +207,6 @@ def get_level2_level3(browser, level1_text_list, country, writer):
         columns = category_pane_list[level1_counter].find_elements_by_class_name('l-second-menu__column')
         level2 = "Default Level2"
         has_level3 = False
-        # complete_category_dict[level1] = {}
         excluding_rest = False
         prev_cat_class = ""
         cat_class = ""
@@ -189,7 +216,7 @@ def get_level2_level3(browser, level1_text_list, country, writer):
         for column in columns:
             level2_and_level3 = column.find_elements_by_class_name('l-second-menu__item')
             for cat in level2_and_level3:
-                cat_name = cat.find_element_by_tag_name('a').get_attribute('data-tracking-nav-sub')
+                cat_name = cat.find_element_by_tag_name('a').get_attribute('data-tracking-nav-sub').encode('utf-8')
 
                 if in_excluding_list(cat_name):
                     excluding_rest = True  # Excluding the following category if this category is excluded
@@ -201,57 +228,54 @@ def get_level2_level3(browser, level1_text_list, country, writer):
 
                 if "heading1" in cat_class:
                     if "heading1" in prev_cat_class:  # Two consecutive heading1, means previous heading1 need to be handled
-                        # complete_category_dict[level1][level2] = get_count(count_browser, prev_cat_url)
                         count = get_count(count_browser, prev_cat_url)
                         writer.writerow([level1, level2, "", count[0], count[1]])
                     excluding_rest = False
-                    level2 = cat_name.encode('utf-8')
-                    # complete_category_dict[level1][level2] = {}
+                    level2 = cat_name
                     has_level3 = False
                 elif "heading2" in cat_class:
                     has_level3 = True
-                    level3 = cat_name.encode('utf-8')
-                    try:
-                        # complete_category_dict[level1][level2][level3] = get_count(count_browser, cat_url)
-                        count = get_count(count_browser, cat_url)
-                        writer.writerow([level1, level2, level3, count[0], count[1]])
+                    level3 = cat_name
+                    count = get_count(count_browser, cat_url)
+                    writer.writerow([level1, level2, level3, count[0], count[1]])
 
-                        # writer.close()
-                    except:
-                        # complete_category_dict[level1][level2] = get_count(count_browser, cat_url)
-                        count = get_count(count_browser, cat_url)
-                        writer.writerow([level1, level2, "", count[0], count[1]])
                 else:
                     if not has_level3 and not excluding_rest:
                         level3 = cat_name
                         count = get_count(count_browser, cat_url)
                         writer.writerow([level1, level2, level3, count[0], count[1]])
-                        # complete_category_dict[level1][level2][level3] = get_count(count_browser, cat_url)
                 prev_cat_class = cat_class
                 prev_cat_url = cat_url
+
+        # In case the last category is a level 2 category
         if "heading1" in cat_class:
-            # complete_category_dict[level1][level2] = get_count(count_browser, cat_url)
             count = get_count(count_browser, cat_url)
             writer.writerow([level1, level2, "", count[0], count[1]])
 
         level1_counter += 1
     count_browser.quit()
-    # return complete_category_dict
 
 
 def get_taobao_collection(browser, url, writer):
     browser.get(url + '/taobao-collection/')
-    # complete_dict["Taobao Collection"] = {}
     level2_browser = webdriver.Chrome("chromedriver", chrome_options=options)
     level3_browser = webdriver.Chrome("chromedriver", chrome_options=options)
+    try:
+        browser.find_element_by_class_name('c-catalog-nav__more-link').click()
+    except:
+        pass
+
     level2_cat_list = browser.find_element_by_class_name('c-catalog-nav__list').find_elements_by_tag_name('a')
     for level2 in level2_cat_list:
         level2_name = level2.text.encode('utf-8')
         level2_url = level2.get_attribute('href')
         level2_browser.get(level2_url)
+        try:
+            level2_browser.find_element_by_class_name('c-catalog-nav__more-link').click()
+        except:
+            pass
         level3_cat_list = level2_browser.find_element_by_class_name('c-catalog-nav__list').find_elements_by_tag_name(
             'a')
-        # complete_dict["Taobao Collection"][level2_name] = {}
 
         for level3 in level3_cat_list:
             level3_url = level3.get_attribute('href') + '&itemperpage=120&sort=ratingdesc'
@@ -259,39 +283,12 @@ def get_taobao_collection(browser, url, writer):
             print level3_name
             count = get_count(level3_browser, level3_url)
             writer.writerow(["Taobao Collection", level2_name, level3_name, count[0], count[1]])
-            # complete_dict["Taobao Collection"][level2_name][level3_name] = get_count(level3_browser, level3_url)
 
     level2_browser.quit()
     level3_browser.quit()
-    # return complete_dict
-
-
-def write_to_csv(all_dict, country):
-    """
-    Write the statistics to csv
-    :param all_dict:
-    :return:
-    """
-
-    with open('%s_result.csv' % country, 'wb') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Level1", "Level2", "Level3", "Counts", "Reviews"])
-        for level1 in all_dict:
-            for level2 in all_dict[level1]:
-                if type(all_dict[level1][level2]) == dict:
-                    if all_dict[level1][level2]:
-                        for level3 in all_dict[level1][level2]:
-                            if int(all_dict[level1][level2][level3][0]) > 0:
-                                writer.writerow([level1.encode('utf-8'), level2.encode('utf-8'), level3.encode('utf-8'),
-                                                 all_dict[level1][level2][level3][0],
-                                                 all_dict[level1][level2][level3][1]])
-                else:
-                    if int(all_dict[level1][level2][0]) > 0:
-                        writer.writerow([level1, level2, "", all_dict[level1][level2][0], all_dict[level1][level2][1]])
 
 
 def main():
-
     browser = webdriver.Chrome("chromedriver", chrome_options=options)
     country = raw_input("Please input the country code: ")
     if country == 'id':
@@ -299,8 +296,10 @@ def main():
 
     elif country == 'my':
         lazada_url = lazada_url_my
-    else:
+    elif country == 'sg':
         lazada_url = lazada_url_sg
+    else:
+        lazada_url = lazada_url_ph
     browser.get(lazada_url)
 
     print "Getting Level 1 Collections..."
@@ -309,19 +308,13 @@ def main():
 
     with open('%s_result.csv' % country, 'wb') as file:
         writer = csv.writer(file)
-
         print "Getting Level 2 and level 3..."
         get_level2_level3(browser, level1_text_list, country, writer)
         if country == 'my' or country == 'ph':
             print "Getting Taobao Collection..."
             get_taobao_collection(browser, lazada_url, writer)
-
         print "All counts obtained"
-
-        # print "Writing to csv..."
-        # write_to_csv(complete_category_dict, country)
         browser.quit()
-
-
+        file.close()
 
 main()
