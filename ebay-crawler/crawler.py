@@ -238,7 +238,7 @@ def filter_sku_id(response):
     return sku_id_list
 
 
-def get_sku_id_list(store_name, pages_to_crawl):
+def get_sku_id_list(store_name, pages_to_crawl, api_finding):
     """
     Get all sku ids in a given store
     :param response:
@@ -389,7 +389,7 @@ def main():
     print "API Connection established"
 
     # Find Item IDs in the store
-    sku_id_list = get_sku_id_list(store_name, pages_to_crawl)
+    sku_id_list = get_sku_id_list(store_name, pages_to_crawl, api_finding)
     print "SKU ID information is obtained from API"
 
     if sku_id_list:

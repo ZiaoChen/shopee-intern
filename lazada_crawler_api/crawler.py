@@ -10,7 +10,7 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 path = os.path.dirname(os.path.realpath(__file__))
 base_url = 'http://www.lazada.%s/mobapi/%s/?sort=name&dir=asc&page=%s&maxitems=400'
-output_path = "output.csv"
+# output_path = "output.csv"
 
 raw_field_names = [
     'ps_id',
@@ -301,12 +301,15 @@ def main():
 
         # Mode 1
         # Crawl seller based on CSV file
-        input_csv = get_input_file('%s\\Input\\Seller.csv' % path)
-        pages_to_crawl = 1
+        input_csv = get_input_file('%s\\Input\\Shop.csv' % path)
+
 
         for seller in input_csv:
             whole_dataframe = pd.DataFrame([])
-
+            try:
+                pages_to_crawl = int(seller["Page"])
+            except:
+                pages_to_crawl = 2
             for page_num in range(1, pages_to_crawl + 1):
                 seller_url = base_url % (get_url(seller["Country"]), seller["Name"], page_num)
                 print seller_url
@@ -351,10 +354,14 @@ def crawl_single_seller(seller_url, csv_writer):
             print "Connection blocked. Retrying..."
             time.sleep(15)
 
+    page_dataframe = pd.DataFrame([])
+    if not response.json()["metadata"]:
+        return page_dataframe
+
     # Initialize variables
     sku_list = response.json()["metadata"]["results"]
     counter = 0
-    page_dataframe = pd.DataFrame([])
+
     csv_writer.writeheader()
 
     for sku_raw in sku_list:
@@ -467,11 +474,11 @@ def get_url(name):
     :return:
     """
 
-    if name == "Singapore":
+    if name == "sg":
         return "sg"
-    elif name == "Indonesia":
+    elif name == "id":
         return "co.id"
-    elif name == "Malaysia":
+    elif name == "my":
         return "com.my"
 
 

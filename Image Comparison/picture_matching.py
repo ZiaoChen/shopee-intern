@@ -198,7 +198,7 @@ def get_duplicate_parent_sku_list(sid1, sid2, file):
     duplicate_parent_sku_list = set()
     parent_sku_list = set()
     for row in file:
-        if row["item_shopid"] == sid1:
+        if row["item_shopid"] == sid1 and row["parent_sku"]:
             parent_sku_list.add(row["parent_sku"])
 
     for row in file:
@@ -225,13 +225,13 @@ dup_list = get_duplicate_parent_sku_list(shop_id_list[0], shop_id_list[1], file)
 shop_a = get_item_id_image(shop_id_list[0], file, dup_list)
 shop_b = get_item_id_image(shop_id_list[1], file, dup_list)
 
-if len(shop_a) < len(shop_b):
-    temp = shop_a
-    shop_a = shop_b
-    shop_b = temp
-    temp = shop_id_list[0]
-    shop_id_list[0] = shop_id_list[1]
-    shop_id_list[1] = temp
+# if len(shop_a) < len(shop_b):
+#     temp = shop_a
+#     shop_a = shop_b
+#     shop_b = temp
+#     temp = shop_id_list[0]
+#     shop_id_list[0] = shop_id_list[1]
+#     shop_id_list[1] = temp
 
 writer.writeheader()
 shop_b = remove_duplicate(shop_b)

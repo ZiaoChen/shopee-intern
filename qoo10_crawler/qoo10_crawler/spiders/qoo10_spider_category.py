@@ -14,7 +14,7 @@ class Qoo10Spider(scrapy.Spider):
     allowed_domains = ['qoo10.sg']
 
     def start_requests(self):
-        category_csv = csv.DictReader(open('%s\\Input\\Category_qoo10.csv' % path))
+        category_csv = csv.DictReader(open('%s\\Input\\Category.csv' % path))
         for category in category_csv:
             base_url = 'http://list.qoo10.sg/gmkt.inc/Category/?gdlc_cd=100000006&gdmc_cd=%s'
             category_url = base_url % category["Name"]

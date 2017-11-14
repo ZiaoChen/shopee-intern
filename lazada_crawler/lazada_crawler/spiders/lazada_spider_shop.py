@@ -14,21 +14,24 @@ path = os.path.dirname(os.path.realpath(__file__))
 
 
 def get_url(name):
-    if name == "Singapore":
+    if name == "sg":
         return "sg"
-    elif name == "Indonesia":
+    elif name == "id":
         return "co.id"
 
 
 class LazadaSpider(scrapy.Spider):
-    name = "lazada_seller"
-    total_page = 6
+    name = "lazada_shop"
 
     def start_requests(self):
-        seller_csv = csv.DictReader(open('%s\\Input\\Seller.csv' % path))
+        seller_csv = csv.DictReader(open('%s\\Input\\Shop.csv' % path))
         for seller in seller_csv:
             base_url = 'http://www.lazada.%s/%s/?spm=a2o42.campaign-714.0.0.oW5MBl&dir=desc&itemperpage=120&sc=IcoC&sort=ratingdesc&page=%s'
-            for page_num in range(1, self.total_page + 1):
+            try:
+                total_page = int(seller["Page"])
+            except:
+                total_page = 1
+            for page_num in range(1, total_page + 1):
                 seller_url = base_url % (get_url(seller["Country"]), seller["Name"], page_num)
                 print seller_url
                 yield Request(seller_url, self.parse, meta={'Country': seller["Country"]})
@@ -74,17 +77,17 @@ class LazadaSpider(scrapy.Spider):
         # Get sku price
         price = hxs.xpath('//span[@id="price_box"]/text()').extract_first()
         if price:
-            if country == "Singapore":
+            if country == "sg":
                 product["price"] = float(price.split(" ")[1][:-1].replace(',', ""))
-            elif country == "Indonesia":
+            elif country == "id":
                 product["price"] = float(price.split(" ")[1][:-1].replace('.', ""))
 
         # Get sku original price
         price_discount = hxs.xpath('//span[@id="special_price_box"]/text()').extract_first()
         if price_discount:
-            if country == "Singapore":
+            if country == "sg":
                 product["price_discount"] = float(price_discount.replace(',', ""))
-            elif country == "Indonesia":
+            elif country == "id":
                 product["price_discount"] = float(price_discount.replace('.', ""))
 
         # Get seller name
@@ -108,11 +111,11 @@ class LazadaSpider(scrapy.Spider):
                 # Get Size
                 previous_cell = ""
                 for cell in specification_table_cells:
-                    if country == "Singapore":
+                    if country == "sg":
                         if "Size" in previous_cell:
                             product["size"] = cell
                             break
-                    elif country == "Indonesia":
+                    elif country == "id":
                         if "Ukuran" in previous_cell:
                             product["size"] = cell
                             break
@@ -121,11 +124,11 @@ class LazadaSpider(scrapy.Spider):
                 # Get Weight
                 previous_cell = ""
                 for cell in specification_table_cells:
-                    if country == "Singapore":
+                    if country == "sg":
                         if "Weight" in previous_cell:
                             product["weight"] = cell
                             break
-                    elif country == "Indonesia":
+                    elif country == "id":
                         if "Berat" in previous_cell:
                             product["weight"] = cell
                             break
@@ -141,7 +144,7 @@ class LazadaSpider(scrapy.Spider):
                     './/span/text()').extract_first()
 
         # Get standard shipping fee
-        if country == "Singapore":
+        if country == "sg":
             shipping_options = hxs.xpath('//div[@class="delivery-option-st__label"]/text()').extract()
             product["local_overseas"] = "local"
             if shipping_options:
@@ -155,7 +158,7 @@ class LazadaSpider(scrapy.Spider):
                     if "overseas" in shipping_option:
                         product["local_overseas"] = "overseas"
             yield product
-        elif country == "Indonesia":
+        elif country == "id":
             product["local_overseas"] = "local"
             shipping_options = hxs.xpath('//div[@class="delivery-option-st__label"]/text()').extract()
             if shipping_options:

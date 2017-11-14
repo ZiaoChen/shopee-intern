@@ -1,43 +1,25 @@
 import scrapy
 from scrapy import Request
-from lazada_crawler.items import LazadaItem
 import csv
-import sys
 import os
 from scrapy import Selector
 import json
-import time
+
 
 class LazadaSpiderAPI(scrapy.Spider):
-    name = "lazada_api"
+    """
+    Crawl Lazada SKU info using api
+    400 skus per page
+    """
+
+    # Config Variables
+    name = "lazada_shop_api"
     path = os.path.dirname(os.path.realpath(__file__))
-
     base_url = 'http://www.lazada.%s/mobapi/%s/?sort=name&dir=asc&page=%s&maxitems=400'
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     output_path = "%s.csv"
+    input_path = '%s\\Input\\Shop.csv' % path
 
+    # Output format
     field_names = ['id', 'name', 'sku', 'url', 'description', 'price', 'special_price', 'rating', 'brand', 'categories',
                    'seller_name', 'size', 'weight',
                    'img_1', 'img_2', 'img_3', 'img_4', 'img_5', 'img_6', 'img_7', 'img_8', 'img_9',
@@ -88,30 +70,69 @@ class LazadaSpiderAPI(scrapy.Spider):
                    'v15_sku']
 
     def start_requests(self):
-        input_csv = self.get_input_file('%s\\Input\\Seller.csv' % self.path)
+        """
+        Function to be executed when Scrapy starts
+        :return:
+        """
 
-        pages_to_crawl = 1
+        input_csv = self.get_input_file(self.input_path)
+
+        # Change the number of pages to crawl here
+
+
         for seller in input_csv:
+            try:
+                pages_to_crawl = int(seller["Page"])
+            except:
+                pages_to_crawl = 1
             for page_num in range(1, pages_to_crawl + 1):
+
+                # Get url
                 seller_url = self.base_url % (self.get_url(seller["Country"]), seller["Name"], page_num)
                 print seller_url
+
+                # Create output file
                 output_csv = self.get_output_file(self.output_path % seller["Name"], self.field_names)
                 output_csv.writeheader()
+
+                # Start to request api for info
                 yield Request(seller_url, self.crawl_single_seller, meta={'output_csv': output_csv})
 
     def get_input_file(self, input_path):
+        """
+        Get input file
+        :param input_path:
+        :return:
+        """
         return csv.DictReader(open(input_path))
 
     def get_output_file(self, output_path, output_fieldname):
+        """
+        Get output file
+        :param output_path:
+        :param output_fieldname:
+        :return:
+        """
         return csv.DictWriter(open(output_path, "wb"), fieldnames=output_fieldname)
 
     def get_url(self, name):
-        if name == "Singapore":
+        """
+        Get url for different countries
+        :param name:
+        :return:
+        """
+        if name == "sg":
             return "sg"
-        elif name == "Indonesia":
+        elif name == "id":
             return "co.id"
 
     def crawl_single_seller(self, response):
+        """
+        Crawl information for a single seller
+        :param response:
+        :return:
+        """
+
         hxs = Selector(response)
         data_body = hxs.xpath('//p/text()').extract_first()
         data_json = json.loads(data_body)
@@ -125,7 +146,8 @@ class LazadaSpiderAPI(scrapy.Spider):
             processed_sku["url"] = sku["url"].replace("/mobapi", "")
             processed_sku["description"] = sku["description"].replace("\n", "")
             processed_sku["price"] = sku["price"]
-            processed_sku["special_price"] = sku["special_price"]
+            if "special_price" in sku:
+                processed_sku["special_price"] = sku["special_price"]
             if "ratings_total" in sku:
                 processed_sku["rating"] = sku["ratings_total"]["avr"]
             else:
@@ -137,22 +159,31 @@ class LazadaSpiderAPI(scrapy.Spider):
                     processed_sku["img_%s" % str(i + 1)] = sku_raw["images"][i]["path"]
             variations = sku["simples"].keys()
             for i in range(0, min(15, len(variations))):
-                processed_sku["v%s_attribute_set_name" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
-                    "attribute_set_name"]
-                processed_sku["v%s_min_delivery_time" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
-                    "min_delivery_time"]
-                processed_sku["v%s_price" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["price"]
-                processed_sku["v%s_special_price" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["special_price"]
-                processed_sku["v%s_quantity" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["quantity"]
-                processed_sku["v%s_shipping_weight" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
-                    "shipping_weight"]
-                processed_sku["v%s_sku" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["sku"]
+                try:
+                    processed_sku["v%s_attribute_set_name" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
+                        "attribute_set_name"]
+                    processed_sku["v%s_min_delivery_time" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
+                        "min_delivery_time"]
+                    processed_sku["v%s_price" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["price"]
+                    processed_sku["v%s_special_price" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["special_price"]
+                    processed_sku["v%s_quantity" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["quantity"]
+                    processed_sku["v%s_shipping_weight" % str(i + 1)] = sku["simples"][variations[i]]["meta"][
+                        "shipping_weight"]
+                    processed_sku["v%s_sku" % str(i + 1)] = sku["simples"][variations[i]]["meta"]["sku"]
+                except:
+                    pass
 
             print sku["url"]
             yield Request(sku["url"], self.crawl_details,
                           meta={'output_csv': response.meta["output_csv"], 'processed_sku': processed_sku})
 
     def crawl_details(self, response):
+        """
+        Go into the sku page to get sku details
+        :param response:
+        :return:
+        """
+
         output_csv = response.meta["output_csv"]
         processed_sku = response.meta["processed_sku"]
         hxs = Selector(response)

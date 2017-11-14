@@ -10,11 +10,11 @@ path = os.path.dirname(os.path.realpath(__file__))
 
 
 class Qoo10Spider(scrapy.Spider):
-    name = "qoo10_seller"
+    name = "qoo10_shop"
     allowed_domains = ['qoo10.sg']
 
     def start_requests(self):
-        seller_csv = csv.DictReader(open('%s\\Input\\Seller_qoo10.csv' % path))
+        seller_csv = csv.DictReader(open('%s\\Input\\Shop.csv' % path))
         for seller in seller_csv:
             base_url = 'http://www.qoo10.sg/shop/%s'
             seller_url = base_url % seller["Name"]

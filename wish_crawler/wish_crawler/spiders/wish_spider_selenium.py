@@ -6,14 +6,18 @@ import json
 import csv
 import signal
 import pandas as pd
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 # Config Variables
 path = os.path.dirname(os.path.realpath(__file__))
 seller_url_base = 'http://www.wish.com/merchant/%s'
 sku_url_base = 'http://www.wish.com/c/%s'
 wish_url = 'http://www.wish.com'
-username = "466930995@qq.com"
-password = "xiuyan@0213"
+username = "mingjie.lyu@shopee.com"
+password = "rainyoutside"
 fieldnames = ['ps_product_name',
               'ps_gender',
               'ps_url',
@@ -275,8 +279,8 @@ def get_sku_details(sku_json):
     # Get other attributes
     sku["ps_sku_ref_no_parent"] = str(sku_json["id"])
     sku["ps_url"] = sku_url_base % sku_json["id"]
-    sku['ps_product_name'] = sku_json["name"]
-    sku["ps_seller"] = sku_json["commerce_product_info"]["variations"][0]["merchant"]
+    sku['ps_product_name'] = sku_json["name"].encode('utf-8')
+    sku["ps_seller"] = sku_json["commerce_product_info"]["variations"][0]["merchant"].encode('utf-8')
 
     if "total_inventory" in sku_json["commerce_product_info"].keys():
         sku["ps_stock"] = int(sku_json["commerce_product_info"]["total_inventory"])
@@ -288,7 +292,7 @@ def get_sku_details(sku_json):
         sku["ps_brand"] = sku_json["brand"]
 
     if "description" in sku_json_keys:
-        sku["ps_product_description"] = str(sku_json["description"])
+        sku["ps_product_description"] = str(sku_json["description"].encode('utf-8'))
 
     if "gender" in sku_json_keys:
         sku["ps_gender"] = sku_json["gender"]
@@ -354,7 +358,7 @@ def get_sku(sku_url, temp_writer):
         script_content = browser_sku.find_elements_by_tag_name("script")[-2].get_attribute('innerHTML')
 
     # Get sku info from script json
-    sku_json = json.loads(script_content.rsplit(";", 5)[0].split(" = ", 1)[1])
+    sku_json = json.loads(script_content.rsplit(";", 6)[0].split(" = ", 1)[1])
     browser_sku.quit()
     sku_dict = get_sku_details(sku_json)
     temp_writer.writerow(filter_sku_attributes(sku_dict, fieldnames))
@@ -373,6 +377,7 @@ def filter_sku_attributes(sku, fieldnames):
     for key in fieldnames:
         if key in sku:
             filtered[key] = sku[key]
+
         else:
             filtered[key] = None
     return filtered
@@ -405,7 +410,7 @@ def main():
     no_skus = int(input("Please input number of skus to crawl: "))
 
     # Read seller name
-    input_csv = open('%s\\Input\\Seller.csv' % path)
+    input_csv = open('%s\\Input\\Shop.csv' % path)
     seller_csv = csv.DictReader(input_csv)
     print "User input obtained"
 
@@ -442,18 +447,19 @@ def main():
         # Crawl detailed information for each sku
         for i in range(min(no_skus, len(sku_list))):
             sku_url = sku_list[i].find_element_by_tag_name("a").get_attribute('href')
-            print sku_url
+            print "Crawling data from %s ......" % sku_url
             sku = get_sku(sku_url, temp_writer)
             raw_dataframe = pd.concat([raw_dataframe, pd.DataFrame.from_dict([filter_sku_attributes(sku, fieldnames)])])
             shopee_dataframe = pd.concat(
                 [shopee_dataframe, pd.DataFrame.from_dict([filter_sku_attributes(sku, fieldnames_shopee)])])
             # writer.writerow(filter_sku_attributes(sku, fieldnames))
             # writer_shopee_format.writerow(filter_sku_attributes(sku, fieldnames_shopee))
-        raw_dataframe.to_excel(raw_writer, "Sheet1", index=False)
-        shopee_dataframe.to_excel(shopee_writer, "Sheet1", index=False)
+        raw_dataframe.to_excel(raw_writer, "Sheet1", index=False, encoding='utf8')
+        shopee_dataframe.to_excel(shopee_writer, "Sheet1", index=False, encoding='utf8')
 
     # Close files and browser
-
+    raw_writer.close()
+    shopee_writer.close()
     # output_csv.close()
     input_csv.close()
     # output_csv_shopee.close()

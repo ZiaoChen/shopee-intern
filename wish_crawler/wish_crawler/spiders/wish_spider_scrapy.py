@@ -23,7 +23,7 @@ class WishSpider(scrapy.Spider):
     more_items_url = 'https://www.wish.com/api/merchant'
 
     def start_requests(self):
-        seller_csv = csv.DictReader(open('%s\\Input\\Seller.csv' % path))
+        seller_csv = csv.DictReader(open('%s\\Input\\Shop.csv' % path))
         for seller in seller_csv:
             seller_url = self.base_url % (seller["Name"])
             print seller_url
