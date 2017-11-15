@@ -102,7 +102,7 @@ def get_level1(browser, country):
     return level1_text_list
 
 
-def get_count(browser, url):
+def get_count(browser, url, crawl_review=True):
     """
     Get Number of skus and number of reviews for a category
     :param browser:
@@ -134,42 +134,43 @@ def get_count(browser, url):
     if count == -1:
         count = max_page * 120
 
-    while 1:
-        page += 1
-        try:
-            review_list = browser.find_elements_by_class_name('c-product-card__review-num')
-        except:
-            break
-
-        # No more skus or no sku has review
-        if len(review_list) == 0 or page == max_page:
-            break
-
-        # Cannot sort by ratings
-        # When both current page and previous page has less than 120 skus with reviews
-        if len(review_list) < 60 and prev_length < 60:
-            return count, -1
-
-        # Get maximum 40 pages
-        if page > 40:
-            return count, num_of_reviews
-
-        prev_length = len(review_list)
-
-        # Sum all reviews
-        for review in review_list:
+    if crawl_review:
+        while 1:
+            page += 1
             try:
-                num_of_reviews += int(review.text.split(" ")[0].replace("(", ""))
+                review_list = browser.find_elements_by_class_name('c-product-card__review-num')
             except:
-                pass
+                break
 
-        # Go to next page
-        browser.get(url + "&page=%d" % (page + 1))
-    print page
+            # No more skus or no sku has review
+            if len(review_list) == 0 or page == max_page:
+                break
+
+            # Cannot sort by ratings
+            # When both current page and previous page has less than 120 skus with reviews
+            if len(review_list) < 60 and prev_length < 60:
+                return count, -1
+
+            # Get maximum 40 pages
+            if page > 40:
+                return count, num_of_reviews
+
+            prev_length = len(review_list)
+
+            # Sum all reviews
+            for review in review_list:
+                try:
+                    num_of_reviews += int(review.text.split(" ")[0].replace("(", ""))
+                except:
+                    pass
+
+            # Go to next page
+            browser.get(url + "&page=%d" % (page + 1))
+        print page
     return count, num_of_reviews
 
 
-def get_level2_level3(browser, level1_text_list, country, writer):
+def get_level2_level3(browser, level1_text_list, country, writer, crawl_review=True):
     """
     Get level2 and level3 statistics
     :param browser:
@@ -228,7 +229,7 @@ def get_level2_level3(browser, level1_text_list, country, writer):
 
                 if "heading1" in cat_class:
                     if "heading1" in prev_cat_class:  # Two consecutive heading1, means previous heading1 need to be handled
-                        count = get_count(count_browser, prev_cat_url)
+                        count = get_count(count_browser, prev_cat_url, crawl_review)
                         writer.writerow([level1, level2, "", count[0], count[1]])
                     excluding_rest = False
                     level2 = cat_name
@@ -236,27 +237,27 @@ def get_level2_level3(browser, level1_text_list, country, writer):
                 elif "heading2" in cat_class:
                     has_level3 = True
                     level3 = cat_name
-                    count = get_count(count_browser, cat_url)
+                    count = get_count(count_browser, cat_url, crawl_review)
                     writer.writerow([level1, level2, level3, count[0], count[1]])
 
                 else:
                     if not has_level3 and not excluding_rest:
                         level3 = cat_name
-                        count = get_count(count_browser, cat_url)
+                        count = get_count(count_browser, cat_url,crawl_review)
                         writer.writerow([level1, level2, level3, count[0], count[1]])
                 prev_cat_class = cat_class
                 prev_cat_url = cat_url
 
         # In case the last category is a level 2 category
         if "heading1" in cat_class:
-            count = get_count(count_browser, cat_url)
+            count = get_count(count_browser, cat_url, crawl_review)
             writer.writerow([level1, level2, "", count[0], count[1]])
 
         level1_counter += 1
     count_browser.quit()
 
 
-def get_taobao_collection(browser, url, writer):
+def get_taobao_collection(browser, url, writer, crawl_review):
     browser.get(url + '/taobao-collection/')
     level2_browser = webdriver.Chrome("chromedriver", chrome_options=options)
     level3_browser = webdriver.Chrome("chromedriver", chrome_options=options)
@@ -281,7 +282,7 @@ def get_taobao_collection(browser, url, writer):
             level3_url = level3.get_attribute('href') + '&itemperpage=120&sort=ratingdesc'
             level3_name = level3.text.encode('utf-8')
             print level3_name
-            count = get_count(level3_browser, level3_url)
+            count = get_count(level3_browser, level3_url, crawl_review)
             writer.writerow(["Taobao Collection", level2_name, level3_name, count[0], count[1]])
 
     level2_browser.quit()
@@ -291,6 +292,12 @@ def get_taobao_collection(browser, url, writer):
 def main():
     browser = webdriver.Chrome("chromedriver", chrome_options=options)
     country = raw_input("Please input the country code: ")
+    crawl_review = raw_input("Please choose to crawl review or not (1 or 0): ")
+    if crawl_review == "1":
+        crawl_review = True
+    else:
+        crawl_review = False
+
     if country == 'id':
         lazada_url = lazada_url_id
 
@@ -309,10 +316,10 @@ def main():
     with open('%s_result.csv' % country, 'wb') as file:
         writer = csv.writer(file)
         print "Getting Level 2 and level 3..."
-        get_level2_level3(browser, level1_text_list, country, writer)
+        get_level2_level3(browser, level1_text_list, country, writer, crawl_review)
         if country == 'my' or country == 'ph':
             print "Getting Taobao Collection..."
-            get_taobao_collection(browser, lazada_url, writer)
+            get_taobao_collection(browser, lazada_url, writer, crawl_review)
         print "All counts obtained"
         browser.quit()
         file.close()
